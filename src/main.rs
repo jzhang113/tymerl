@@ -77,7 +77,10 @@ struct Renderable {
 fn main() -> rltk::BError {
     use rltk::RltkBuilder;
 
-    let context = RltkBuilder::simple80x50()
+    const WIDTH: i32 = 80;
+    const HEIGHT: i32 = 50;
+
+    let context = RltkBuilder::simple(WIDTH, HEIGHT)?
         .with_title("Roguelike Tutorial")
         .build()?;
     let mut gs = State { ecs: World::new() };
@@ -85,9 +88,16 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<player::Player>();
 
+    let map = map::build_rogue_map(WIDTH, HEIGHT);
+    let player_pos = map.rooms[0].center();
+    gs.ecs.insert(map);
+
     gs.ecs
         .create_entity()
-        .with(Position { x: 10, y: 10 })
+        .with(Position {
+            x: player_pos.x,
+            y: player_pos.y,
+        })
         .with(Renderable {
             symbol: rltk::to_cp437('@'),
             fg: RGB::named(rltk::YELLOW),
@@ -95,9 +105,6 @@ fn main() -> rltk::BError {
         })
         .with(player::Player {})
         .build();
-
-    let map = map::build(80, 50);
-    gs.ecs.insert(map);
 
     rltk::main_loop(context, gs)
 }
