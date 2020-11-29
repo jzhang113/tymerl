@@ -1,4 +1,4 @@
-use rltk::{Point, Rect};
+use rltk::{Algorithm2D, BaseMap, Point, Rect};
 use std::convert::TryInto;
 
 #[derive(PartialEq, Copy, Clone)]
@@ -12,6 +12,20 @@ pub struct Map {
     pub rooms: Vec<Rect>,
     pub width: i32,
     pub height: i32,
+    pub known_tiles: Vec<bool>,
+    pub visible_tiles: Vec<bool>,
+}
+
+impl BaseMap for Map {
+    fn is_opaque(&self, idx: usize) -> bool {
+        self.tiles[idx] == TileType::Wall
+    }
+}
+
+impl Algorithm2D for Map {
+    fn dimensions(&self) -> Point {
+        Point::new(self.width, self.height)
+    }
 }
 
 impl Map {
@@ -73,6 +87,8 @@ pub fn build_rogue_map(width: i32, height: i32) -> Map {
         rooms: vec![],
         width: width,
         height: height,
+        known_tiles: vec![false; dim],
+        visible_tiles: vec![false; dim],
     };
 
     let mut rng = rltk::RandomNumberGenerator::new();

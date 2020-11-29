@@ -1,23 +1,21 @@
-use super::{Map, Position, State, TileType};
+use super::{Map, Player, Position, State, TileType, Viewshed};
 use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
-use specs_derive::Component;
-
-#[derive(Component)]
-pub struct Player {}
 
 fn try_move_player(ecs: &mut World, dx: i32, dy: i32) {
     use std::cmp::{max, min};
     let mut positions = ecs.write_storage::<Position>();
-    let mut players = ecs.write_storage::<Player>();
+    let players = ecs.read_storage::<Player>();
+    let mut viewsheds = ecs.write_storage::<Viewshed>();
     let map = ecs.fetch::<Map>();
 
-    for (_player, pos) in (&mut players, &mut positions).join() {
+    for (_player, pos, viewshed) in (&players, &mut positions, &mut viewsheds).join() {
         let dest_index = map.get_index(pos.x + dx, pos.y + dy);
 
         if map.tiles[dest_index] != TileType::Wall {
             pos.x = min(map.width, max(0, pos.x + dx));
             pos.y = min(map.height, max(0, pos.y + dy));
+            viewshed.dirty = true;
         }
     }
 }

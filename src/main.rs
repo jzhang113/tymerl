@@ -1,13 +1,23 @@
 use rltk::{GameState, Rltk, RGB};
 use specs::prelude::*;
-use specs_derive::Component;
 
+mod components;
+pub use components::*;
 mod map;
 pub use map::*;
 mod player;
+mod sys_visibility;
 
 pub struct State {
     ecs: World,
+}
+
+impl State {
+    fn run_systems(&mut self) {
+        let mut vis = sys_visibility::VisibilitySystem {};
+        vis.run_now(&self.ecs);
+        self.ecs.maintain();
+    }
 }
 
 impl GameState for State {
@@ -16,10 +26,10 @@ impl GameState for State {
 
         // input + logic
         player::player_input(self, ctx);
+        self.run_systems();
 
-        // map
-        let map = self.ecs.fetch::<Map>();
-        draw_map(&map, ctx);
+        // draw map
+        draw_map(&self.ecs, ctx);
 
         // render
         let positions = self.ecs.read_storage::<Position>();
@@ -31,26 +41,32 @@ impl GameState for State {
     }
 }
 
-fn draw_map(map: &map::Map, ctx: &mut Rltk) {
+fn draw_map(ecs: &World, ctx: &mut Rltk) {
+    let map = ecs.fetch::<Map>();
+
     let mut x = 0;
     let mut y = 0;
 
-    for tile in map.tiles.iter() {
-        match tile {
-            map::TileType::Floor => ctx.set(
-                x,
-                y,
-                RGB::from_f32(0.5, 0.5, 0.5),
-                RGB::from_f32(0., 0., 0.),
-                rltk::to_cp437('.'),
-            ),
-            map::TileType::Wall => ctx.set(
-                x,
-                y,
-                RGB::from_f32(0.5, 1.0, 0.0),
-                RGB::from_f32(0., 0., 0.),
-                rltk::to_cp437('#'),
-            ),
+    for (idx, tile) in map.tiles.iter().enumerate() {
+        if map.known_tiles[idx] {
+            let symbol;
+            let mut fg;
+
+            match tile {
+                TileType::Floor => {
+                    symbol = rltk::to_cp437('.');
+                    fg = RGB::from_f32(0.0, 0.5, 0.5);
+                }
+                TileType::Wall => {
+                    symbol = rltk::to_cp437('#');
+                    fg = RGB::from_f32(0., 1.0, 0.);
+                }
+            }
+
+            if !map.visible_tiles[idx] {
+                fg = fg.to_greyscale()
+            }
+            ctx.set(x, y, fg, RGB::from_f32(0., 0., 0.), symbol);
         }
 
         x += 1;
@@ -59,19 +75,6 @@ fn draw_map(map: &map::Map, ctx: &mut Rltk) {
             y += 1;
         }
     }
-}
-
-#[derive(Component)]
-struct Position {
-    x: i32,
-    y: i32,
-}
-
-#[derive(Component)]
-struct Renderable {
-    symbol: rltk::FontCharType,
-    fg: RGB,
-    bg: RGB,
 }
 
 fn main() -> rltk::BError {
@@ -83,10 +86,12 @@ fn main() -> rltk::BError {
     let context = RltkBuilder::simple(WIDTH, HEIGHT)?
         .with_title("Roguelike Tutorial")
         .build()?;
+
     let mut gs = State { ecs: World::new() };
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
-    gs.ecs.register::<player::Player>();
+    gs.ecs.register::<Player>();
+    gs.ecs.register::<Viewshed>();
 
     let map = map::build_rogue_map(WIDTH, HEIGHT);
     let player_pos = map.rooms[0].center();
@@ -103,7 +108,11 @@ fn main() -> rltk::BError {
             fg: RGB::named(rltk::YELLOW),
             bg: RGB::named(rltk::BLACK),
         })
-        .with(player::Player {})
+        .with(Player {})
+        .with(Viewshed {
+            visible: Vec::new(),
+            dirty: true,
+        })
         .build();
 
     rltk::main_loop(context, gs)
