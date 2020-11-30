@@ -23,3 +23,13 @@ pub struct Viewshed {
     pub visible: Vec<rltk::Point>,
     pub dirty: bool,
 }
+
+#[derive(Component)]
+pub struct ActFlag {}
+
+#[derive(Component)]
+pub struct Schedulable {
+    pub current: i32,
+    pub base: i32,
+    pub delta: i32,
+}

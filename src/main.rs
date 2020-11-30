@@ -2,11 +2,19 @@ use rltk::{GameState, Rltk, RGB};
 use specs::prelude::*;
 
 mod components;
-pub use components::*;
 mod map;
-pub use map::*;
 mod player;
+mod sys_turn;
 mod sys_visibility;
+
+pub use components::*;
+pub use map::*;
+
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum RunState {
+    AwaitingInput,
+    Running,
+}
 
 pub struct State {
     ecs: World,
@@ -16,28 +24,47 @@ impl State {
     fn run_systems(&mut self) {
         let mut vis = sys_visibility::VisibilitySystem {};
         vis.run_now(&self.ecs);
+        let mut turns = sys_turn::TurnSystem {};
+        turns.run_now(&self.ecs);
         self.ecs.maintain();
     }
 }
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
-        ctx.cls();
-
-        // input + logic
-        player::player_input(self, ctx);
-        self.run_systems();
-
         // draw map
+        ctx.cls();
         draw_map(&self.ecs, ctx);
 
-        // render
-        let positions = self.ecs.read_storage::<Position>();
-        let renderables = self.ecs.read_storage::<Renderable>();
+        let mut next_status;
+        // wrapping to limit borrowed lifetimes
+        {
+            // render
+            let positions = self.ecs.read_storage::<Position>();
+            let renderables = self.ecs.read_storage::<Renderable>();
 
-        for (pos, render) in (&positions, &renderables).join() {
-            ctx.set(pos.x, pos.y, render.fg, render.bg, render.symbol);
+            for (pos, render) in (&positions, &renderables).join() {
+                ctx.set(pos.x, pos.y, render.fg, render.bg, render.symbol);
+            }
+
+            // get the current RunState
+            next_status = *self.ecs.fetch::<RunState>();
         }
+
+        match next_status {
+            RunState::AwaitingInput => {
+                next_status = player::player_input(self, ctx);
+            }
+            RunState::Running => {
+                while next_status == RunState::Running {
+                    self.run_systems();
+                    next_status = *self.ecs.fetch::<RunState>();
+                }
+            }
+        }
+
+        let mut status_writer = self.ecs.write_resource::<RunState>();
+        *status_writer = next_status;
     }
 }
 
@@ -92,6 +119,10 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
     gs.ecs.register::<Viewshed>();
+    gs.ecs.register::<ActFlag>();
+    gs.ecs.register::<Schedulable>();
+
+    gs.ecs.insert(RunState::Running);
 
     let map = map::build_rogue_map(WIDTH, HEIGHT);
     let player_pos = map.rooms[0].center();
@@ -109,6 +140,11 @@ fn main() -> rltk::BError {
             bg: RGB::named(rltk::BLACK),
         })
         .with(Player {})
+        .with(Schedulable {
+            current: 0,
+            base: 24,
+            delta: 4,
+        })
         .with(Viewshed {
             visible: Vec::new(),
             dirty: true,
