@@ -1,4 +1,4 @@
-use rltk::RGB;
+use rltk::{Point, RGB};
 use specs::prelude::*;
 use specs_derive::Component;
 
@@ -6,6 +6,12 @@ use specs_derive::Component;
 pub struct Position {
     pub x: i32,
     pub y: i32,
+}
+
+impl Position {
+    pub fn as_point(&self) -> Point {
+        Point::new(self.x, self.y)
+    }
 }
 
 #[derive(Component)]
@@ -20,7 +26,7 @@ pub struct Player {}
 
 #[derive(Component)]
 pub struct Viewshed {
-    pub visible: Vec<rltk::Point>,
+    pub visible: Vec<Point>,
     pub dirty: bool,
 }
 

@@ -2,6 +2,8 @@ use rltk::{GameState, Rltk, RGB};
 use specs::prelude::*;
 
 mod components;
+mod gamelog;
+mod gui;
 mod map;
 mod player;
 mod sys_turn;
@@ -32,9 +34,10 @@ impl State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
-        // draw map
+        // draw map + gui
         ctx.cls();
         draw_map(&self.ecs, ctx);
+        gui::draw_ui(&self.ecs, ctx);
 
         let mut next_status;
         // wrapping to limit borrowed lifetimes
@@ -45,6 +48,11 @@ impl GameState for State {
 
             for (pos, render) in (&positions, &renderables).join() {
                 ctx.set(pos.x, pos.y, render.fg, render.bg, render.symbol);
+            }
+
+            let log = self.ecs.fetch::<gamelog::GameLog>();
+            for (line, message) in log.entries.iter().rev().take(5).enumerate() {
+                ctx.print(2, 50 + line + 1, message);
             }
 
             // get the current RunState
@@ -110,9 +118,11 @@ fn main() -> rltk::BError {
     const WIDTH: i32 = 80;
     const HEIGHT: i32 = 50;
 
-    let context = RltkBuilder::simple(WIDTH, HEIGHT)?
+    let context = RltkBuilder::simple(WIDTH, HEIGHT + 7)
+        .expect("Failed to create console")
         .with_title("Roguelike Tutorial")
-        .build()?;
+        .build()
+        .expect("Failed to build console");
 
     let mut gs = State { ecs: World::new() };
     gs.ecs.register::<Position>();
@@ -127,6 +137,11 @@ fn main() -> rltk::BError {
     let map = map::build_rogue_map(WIDTH, HEIGHT);
     let player_pos = map.rooms[0].center();
     gs.ecs.insert(map);
+
+    let log = gamelog::GameLog {
+        entries: vec!["Hello world!".to_string()],
+    };
+    gs.ecs.insert(log);
 
     gs.ecs
         .create_entity()
