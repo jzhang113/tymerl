@@ -6,6 +6,7 @@ mod gamelog;
 mod gui;
 mod map;
 mod player;
+mod sys_damage;
 mod sys_turn;
 mod sys_visibility;
 
@@ -20,12 +21,16 @@ pub enum RunState {
 
 pub struct State {
     ecs: World,
+    tick: i32,
 }
 
 impl State {
     fn run_systems(&mut self) {
+        self.tick += 1;
         let mut vis = sys_visibility::VisibilitySystem {};
         vis.run_now(&self.ecs);
+        let mut dams = sys_damage::DamageSystem {};
+        dams.run_now(&self.ecs);
         let mut turns = sys_turn::TurnSystem {};
         turns.run_now(&self.ecs);
         self.ecs.maintain();
@@ -55,6 +60,13 @@ impl GameState for State {
                 ctx.print(2, 50 + line + 1, message);
             }
 
+            let player = self.ecs.fetch::<Entity>();
+            let can_act = self.ecs.read_storage::<CanActFlag>();
+            match can_act.get(*player) {
+                None => ctx.print(30, 1, format!("OPPONENT TURN {}", self.tick)),
+                Some(_) => ctx.print(30, 1, format!("YOUR TURN {}", self.tick)),
+            }
+
             // get the current RunState
             next_status = *self.ecs.fetch::<RunState>();
         }
@@ -64,10 +76,12 @@ impl GameState for State {
                 next_status = player::player_input(self, ctx);
             }
             RunState::Running => {
-                while next_status == RunState::Running {
-                    self.run_systems();
-                    next_status = *self.ecs.fetch::<RunState>();
-                }
+                // uncomment while loop to skip rendering intermediate states
+                // while next_status == RunState::Running {
+                self.run_systems();
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                next_status = *self.ecs.fetch::<RunState>();
+                //}
             }
         }
 
@@ -124,13 +138,17 @@ fn main() -> rltk::BError {
         .build()
         .expect("Failed to build console");
 
-    let mut gs = State { ecs: World::new() };
+    let mut gs = State {
+        ecs: World::new(),
+        tick: 0,
+    };
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
     gs.ecs.register::<Viewshed>();
-    gs.ecs.register::<ActFlag>();
+    gs.ecs.register::<CanActFlag>();
     gs.ecs.register::<Schedulable>();
+    gs.ecs.register::<DamageEvent>();
 
     gs.ecs.insert(RunState::Running);
 
@@ -143,7 +161,8 @@ fn main() -> rltk::BError {
     };
     gs.ecs.insert(log);
 
-    gs.ecs
+    let player = gs
+        .ecs
         .create_entity()
         .with(Position {
             x: player_pos.x,
@@ -165,6 +184,7 @@ fn main() -> rltk::BError {
             dirty: true,
         })
         .build();
+    gs.ecs.insert(player);
 
     rltk::main_loop(context, gs)
 }

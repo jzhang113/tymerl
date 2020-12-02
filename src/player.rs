@@ -8,6 +8,8 @@ fn try_move_player(ecs: &mut World, dx: i32, dy: i32) -> RunState {
     let players = ecs.read_storage::<Player>();
     let mut viewsheds = ecs.write_storage::<Viewshed>();
     let map = ecs.fetch::<Map>();
+    let mut damages = ecs.write_storage::<super::DamageEvent>();
+    let player = ecs.fetch::<Entity>();
 
     for (_player, pos, viewshed) in (&players, &mut positions, &mut viewsheds).join() {
         let dest_index = map.get_index(pos.x + dx, pos.y + dy);
@@ -17,6 +19,8 @@ fn try_move_player(ecs: &mut World, dx: i32, dy: i32) -> RunState {
             pos.y = min(map.height, max(0, pos.y + dy));
             viewshed.dirty = true;
 
+            super::DamageEvent::add_damage(&mut damages, *player, 1);
+
             return RunState::Running;
         }
     }
@@ -25,6 +29,24 @@ fn try_move_player(ecs: &mut World, dx: i32, dy: i32) -> RunState {
 }
 
 pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
+    // assert it is in fact our turn
+    {
+        let can_act = gs.ecs.write_storage::<super::CanActFlag>();
+        let player = gs.ecs.fetch::<Entity>();
+        assert!(can_act.get(*player).is_some());
+    }
+
+    let result = handle_keys(gs, ctx);
+    let mut can_act = gs.ecs.write_storage::<super::CanActFlag>();
+
+    if result == RunState::Running {
+        can_act.clear();
+    }
+
+    result
+}
+
+fn handle_keys(gs: &mut State, ctx: &mut Rltk) -> RunState {
     match ctx.key {
         None => RunState::AwaitingInput,
         Some(key) => match key {

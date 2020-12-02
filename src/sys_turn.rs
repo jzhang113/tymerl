@@ -1,4 +1,4 @@
-use super::{ActFlag, Player, Position, RunState, Schedulable};
+use super::{CanActFlag, Position, RunState, Schedulable};
 use specs::prelude::*;
 
 pub struct TurnSystem {}
@@ -7,16 +7,20 @@ impl<'a> System<'a> for TurnSystem {
     type SystemData = (
         WriteExpect<'a, RunState>,
         Entities<'a>,
-        WriteStorage<'a, ActFlag>,
+        WriteStorage<'a, CanActFlag>,
         WriteStorage<'a, Schedulable>,
         ReadStorage<'a, Position>,
-        ReadStorage<'a, Player>,
+        ReadExpect<'a, Entity>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
         let (mut game_state, entities, mut can_act, mut schedulables, pos, player) = data;
         assert!(*game_state == RunState::Running);
 
+        if can_act.get(*player).is_some() {
+            *game_state = RunState::AwaitingInput;
+            return;
+        }
         can_act.clear();
 
         for (ent, sched, _pos) in (&entities, &mut schedulables, &pos).join() {
@@ -27,12 +31,11 @@ impl<'a> System<'a> for TurnSystem {
 
             sched.current += sched.base;
             can_act
-                .insert(ent, ActFlag {})
-                .expect("Failed to insert ActFlag");
+                .insert(ent, CanActFlag {})
+                .expect("Failed to insert CanActFlag");
 
-            match player.get(ent) {
-                None => {}
-                Some(_) => *game_state = RunState::AwaitingInput,
+            if ent == *player {
+                *game_state = RunState::AwaitingInput
             }
         }
     }
