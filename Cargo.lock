@@ -1543,6 +1543,7 @@ dependencies = [
  "rayon",
  "shred",
  "shrev",
+ "specs-derive",
  "tuple_utils",
 ]
 
@@ -1627,9 +1628,9 @@ checksum = "44834418e2c5b16f47bedf35c28e148db099187dd5feee6367fb2525863af4f1"
 name = "tymerl"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "rltk",
  "specs",
- "specs-derive",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 use rltk::{Point, RGB};
 use specs::prelude::*;
-use specs_derive::Component;
+use specs::Component;
 
 #[derive(Component)]
 pub struct Position {
@@ -31,32 +31,16 @@ pub struct Viewshed {
 }
 
 #[derive(Component)]
-pub struct CanActFlag {}
+pub struct CanActFlag {
+    pub is_reaction: bool,
+}
+
+#[derive(Component)]
+pub struct CanReactFlag {}
 
 #[derive(Component)]
 pub struct Schedulable {
     pub current: i32,
     pub base: i32,
     pub delta: i32,
-}
-
-#[derive(Component)]
-pub struct DamageEvent {
-    pub amount: Vec<i32>,
-}
-
-impl DamageEvent {
-    pub fn add_damage(store: &mut WriteStorage<DamageEvent>, ent: Entity, amount: i32) {
-        match store.get_mut(ent) {
-            None => {
-                let event = DamageEvent {
-                    amount: vec![amount],
-                };
-                store.insert(ent, event).expect("Failed to insert damage");
-            }
-            Some(event) => {
-                event.amount.push(amount);
-            }
-        }
-    }
 }

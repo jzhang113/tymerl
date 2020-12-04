@@ -8,5 +8,5 @@ edition = "2018"
 
 [dependencies]
 rltk = { version = "0.8.1" }
-specs = "0.16.1"
-specs-derive = "0.4.1"
+specs = { version = "0.16.1", features = ["specs-derive"] }
+lazy_static = { version="1.4.0" }

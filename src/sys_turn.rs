@@ -31,7 +31,7 @@ impl<'a> System<'a> for TurnSystem {
 
             sched.current += sched.base;
             can_act
-                .insert(ent, CanActFlag {})
+                .insert(ent, CanActFlag { is_reaction: false })
                 .expect("Failed to insert CanActFlag");
 
             if ent == *player {

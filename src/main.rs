@@ -1,12 +1,15 @@
+#[macro_use]
+extern crate lazy_static;
+
 use rltk::{GameState, Rltk, RGB};
 use specs::prelude::*;
 
 mod components;
+pub mod events;
 mod gamelog;
 mod gui;
 mod map;
 mod player;
-mod sys_damage;
 mod sys_turn;
 mod sys_visibility;
 
@@ -29,8 +32,9 @@ impl State {
         self.tick += 1;
         let mut vis = sys_visibility::VisibilitySystem {};
         vis.run_now(&self.ecs);
-        let mut dams = sys_damage::DamageSystem {};
-        dams.run_now(&self.ecs);
+
+        events::process_stack(&mut self.ecs);
+
         let mut turns = sys_turn::TurnSystem {};
         turns.run_now(&self.ecs);
         self.ecs.maintain();
@@ -147,8 +151,8 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Player>();
     gs.ecs.register::<Viewshed>();
     gs.ecs.register::<CanActFlag>();
+    gs.ecs.register::<CanReactFlag>();
     gs.ecs.register::<Schedulable>();
-    gs.ecs.register::<DamageEvent>();
 
     gs.ecs.insert(RunState::Running);
 
@@ -183,6 +187,7 @@ fn main() -> rltk::BError {
             visible: Vec::new(),
             dirty: true,
         })
+        .with(CanReactFlag {})
         .build();
     gs.ecs.insert(player);
 
