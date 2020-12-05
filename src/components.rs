@@ -44,3 +44,10 @@ pub struct Schedulable {
     pub base: i32,
     pub delta: i32,
 }
+
+#[derive(Component)]
+pub struct ParticleLifetime {
+    pub base: f32,
+    pub remaining: f32,
+    pub should_fade: bool,
+}

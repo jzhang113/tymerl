@@ -10,11 +10,13 @@ mod gamelog;
 mod gui;
 mod map;
 mod player;
+mod sys_particle;
 mod sys_turn;
 mod sys_visibility;
 
 pub use components::*;
-pub use map::*;
+pub use map::{Map, TileType};
+pub use sys_particle::ParticleBuilder;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum RunState {
@@ -37,6 +39,10 @@ impl State {
 
         let mut turns = sys_turn::TurnSystem {};
         turns.run_now(&self.ecs);
+
+        let mut particles = sys_particle::ParticleSpawnSystem {};
+        particles.run_now(&self.ecs);
+
         self.ecs.maintain();
     }
 }
@@ -45,20 +51,15 @@ impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
         // draw map + gui
         ctx.cls();
+        sys_particle::cleanup_particles(&mut self.ecs, ctx);
+
         draw_map(&self.ecs, ctx);
+        draw_renderables(&self.ecs, ctx);
         gui::draw_ui(&self.ecs, ctx);
 
         let mut next_status;
         // wrapping to limit borrowed lifetimes
         {
-            // render
-            let positions = self.ecs.read_storage::<Position>();
-            let renderables = self.ecs.read_storage::<Renderable>();
-
-            for (pos, render) in (&positions, &renderables).join() {
-                ctx.set(pos.x, pos.y, render.fg, render.bg, render.symbol);
-            }
-
             let log = self.ecs.fetch::<gamelog::GameLog>();
             for (line, message) in log.entries.iter().rev().take(5).enumerate() {
                 ctx.print(2, 50 + line + 1, message);
@@ -83,7 +84,7 @@ impl GameState for State {
                 // uncomment while loop to skip rendering intermediate states
                 // while next_status == RunState::Running {
                 self.run_systems();
-                std::thread::sleep(std::time::Duration::from_millis(100));
+                //std::thread::sleep(std::time::Duration::from_millis(100));
                 next_status = *self.ecs.fetch::<RunState>();
                 //}
             }
@@ -130,6 +131,29 @@ fn draw_map(ecs: &World, ctx: &mut Rltk) {
     }
 }
 
+fn draw_renderables(ecs: &World, ctx: &mut Rltk) {
+    let positions = ecs.read_storage::<Position>();
+    let renderables = ecs.read_storage::<Renderable>();
+    let lifetimes = ecs.read_storage::<ParticleLifetime>();
+
+    for (pos, render, lifetime) in (&positions, &renderables, (&lifetimes).maybe()).join() {
+        let mut fg = render.fg;
+        let mut bg = render.bg;
+
+        if let Some(lifetime) = lifetime {
+            if lifetime.should_fade {
+                let fade_percent = 1.0 - lifetime.remaining / lifetime.base;
+                let base_color = RGB::named(rltk::BLACK);
+
+                fg = fg.lerp(base_color, fade_percent);
+                bg = bg.lerp(base_color, fade_percent);
+            }
+        }
+
+        ctx.set(pos.x, pos.y, fg, bg, render.symbol);
+    }
+}
+
 fn main() -> rltk::BError {
     use rltk::RltkBuilder;
 
@@ -153,8 +177,10 @@ fn main() -> rltk::BError {
     gs.ecs.register::<CanActFlag>();
     gs.ecs.register::<CanReactFlag>();
     gs.ecs.register::<Schedulable>();
+    gs.ecs.register::<ParticleLifetime>();
 
     gs.ecs.insert(RunState::Running);
+    gs.ecs.insert(sys_particle::ParticleBuilder::new());
 
     let map = map::build_rogue_map(WIDTH, HEIGHT);
     let player_pos = map.rooms[0].center();

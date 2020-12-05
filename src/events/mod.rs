@@ -90,6 +90,20 @@ fn entity_can_react(ecs: &mut World, target: &Entity) -> bool {
 fn process_event(ecs: &mut World, event: &Event) {
     match event.event_type {
         EventType::Damage { amount } => {
+            {
+                let mut builder = ecs.fetch_mut::<super::ParticleBuilder>();
+
+                for pos in &event.target_tiles {
+                    builder.request(
+                        *pos,
+                        rltk::RGB::named(rltk::ORANGE),
+                        rltk::RGB::named(rltk::BLACK),
+                        rltk::to_cp437('▓'),
+                        5000.0,
+                    );
+                }
+            }
+
             for ent in get_affected_entities(ecs, &event.target_tiles) {
                 println!("{:?} took {:?} damage from {:?}", ent, amount, event.source)
             }
