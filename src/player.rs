@@ -8,7 +8,6 @@ fn try_move_player(ecs: &mut World, dx: i32, dy: i32) -> RunState {
     let players = ecs.read_storage::<Player>();
     let mut viewsheds = ecs.write_storage::<Viewshed>();
     let map = ecs.fetch::<Map>();
-    let player = ecs.fetch::<Entity>();
 
     for (_player, pos, viewshed) in (&players, &mut positions, &mut viewsheds).join() {
         let dest_index = map.get_index(pos.x + dx, pos.y + dy);
@@ -19,7 +18,7 @@ fn try_move_player(ecs: &mut World, dx: i32, dy: i32) -> RunState {
             viewshed.dirty = true;
 
             // testing events
-            super::events::add_event(Some(*player));
+            super::events::add_event(vec![pos.as_point()]);
 
             return RunState::Running;
         }

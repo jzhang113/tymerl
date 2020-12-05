@@ -1,3 +1,4 @@
+use rltk::Point;
 use specs::prelude::*;
 use std::sync::Mutex;
 
@@ -5,6 +6,7 @@ lazy_static! {
     pub static ref STACK: Mutex<Vec<Event>> = Mutex::new(Vec::new());
 }
 
+#[derive(Debug)]
 pub enum EventType {
     Damage { amount: i32 },
 }
@@ -12,15 +14,15 @@ pub enum EventType {
 pub struct Event {
     pub event_type: EventType,
     pub source: Option<Entity>,
-    pub target: Option<Entity>,
+    pub target_tiles: Vec<Point>,
     pub invokes_reaction: bool,
 }
 
-pub fn add_event(target: Option<Entity>) {
+pub fn add_event(targets: Vec<Point>) {
     STACK.lock().expect("Failed to lock STACK").push(Event {
         event_type: EventType::Damage { amount: 1 },
         source: None,
-        target,
+        target_tiles: targets,
         invokes_reaction: true,
     });
 }
@@ -32,10 +34,15 @@ pub fn process_stack(ecs: &mut World) {
             None => {
                 break;
             }
-            Some(ev) => match ev.target {
-                None => process_event(ecs, &ev),
-                Some(target) => {
-                    let entities_hit = get_reactions(ecs, &target);
+            Some(ev) => {
+                if ev.target_tiles.is_empty() {
+                    // non-targetted events
+                    process_event(ecs, &ev);
+                } else {
+                    let mut entities_hit = get_affected_entities(ecs, &ev.target_tiles);
+                    entities_hit.retain(|ent| entity_can_react(ecs, ent));
+
+                    // check if there are entities that can respond
                     if ev.invokes_reaction && !entities_hit.is_empty() {
                         let mut can_act = ecs.write_storage::<super::CanActFlag>();
 
@@ -45,36 +52,47 @@ pub fn process_stack(ecs: &mut World) {
                                 .expect("Failed to insert CanActFlag");
                         }
 
-                        // put the event back on the stack
+                        // put the event back on the stack and return control to the main loop
                         STACK.lock().expect("Failed to lock STACK").push(ev);
-
                         break;
                     } else {
+                        // otherwise resolve the event
                         process_event(ecs, &ev);
                     }
                 }
-            },
+            }
         }
     }
 }
 
-fn get_reactions(ecs: &mut World, target: &Entity) -> Vec<Entity> {
-    let mut reactions = Vec::new();
-    let can_react = ecs.read_storage::<super::CanReactFlag>();
+fn get_affected_entities(ecs: &mut World, targets: &Vec<Point>) -> Vec<Entity> {
+    let mut affected = Vec::new();
+    let positions = ecs.read_storage::<super::Position>();
+    let entities = ecs.entities();
 
-    if can_react.get(*target).is_some() {
-        reactions.push(*target);
+    for (ent, pos) in (&entities, &positions).join() {
+        for target in targets {
+            if pos.as_point() == *target {
+                affected.push(ent);
+            }
+        }
     }
 
-    reactions
+    affected
+}
+
+fn entity_can_react(ecs: &mut World, target: &Entity) -> bool {
+    let can_react = ecs.read_storage::<super::CanReactFlag>();
+    can_react.get(*target).is_some()
 }
 
 // placeholder handling
-fn process_event(_ecs: &mut World, event: &Event) {
+fn process_event(ecs: &mut World, event: &Event) {
     match event.event_type {
-        EventType::Damage { amount } => println!(
-            "{:?} took {:?} damage from {:?}",
-            event.target, amount, event.source
-        ),
+        EventType::Damage { amount } => {
+            for ent in get_affected_entities(ecs, &event.target_tiles) {
+                println!("{:?} took {:?} damage from {:?}", ent, amount, event.source)
+            }
+        }
     }
 }
