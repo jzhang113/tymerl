@@ -513,6 +513,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
+name = "ezing"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "566e88319a9d235613fa84128a4b24450923bf0380d472f161b324936b18a7d1"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1628,6 +1637,7 @@ checksum = "44834418e2c5b16f47bedf35c28e148db099187dd5feee6367fb2525863af4f1"
 name = "tymerl"
 version = "0.1.0"
 dependencies = [
+ "ezing",
  "lazy_static",
  "rltk",
  "specs",

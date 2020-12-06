@@ -27,8 +27,7 @@ fn update_lifetimes(ecs: &mut World, ctx: &Rltk) -> Vec<Entity> {
 
 struct ParticleRequest {
     position: Point,
-    fg: RGB,
-    bg: RGB,
+    color: RGB,
     symbol: FontCharType,
     lifetime: f32,
 }
@@ -44,18 +43,10 @@ impl ParticleBuilder {
         }
     }
 
-    pub fn request(
-        &mut self,
-        position: Point,
-        fg: RGB,
-        bg: RGB,
-        symbol: FontCharType,
-        lifetime: f32,
-    ) {
+    pub fn request(&mut self, position: Point, color: RGB, symbol: FontCharType, lifetime: f32) {
         self.requests.push(ParticleRequest {
             position,
-            fg,
-            bg,
+            color,
             symbol,
             lifetime,
         })
@@ -92,8 +83,8 @@ impl<'a> System<'a> for ParticleSpawnSystem {
                     particle,
                     Renderable {
                         symbol: request.symbol,
-                        fg: request.fg,
-                        bg: request.bg,
+                        fg: request.color,
+                        bg: rltk::RGB::named(rltk::BLACK),
                     },
                 )
                 .expect("Failed to insert Renderable for particle");

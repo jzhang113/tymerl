@@ -96,10 +96,9 @@ fn process_event(ecs: &mut World, event: &Event) {
                 for pos in &event.target_tiles {
                     builder.request(
                         *pos,
-                        rltk::RGB::named(rltk::ORANGE),
-                        rltk::RGB::named(rltk::BLACK),
-                        rltk::to_cp437('▓'),
-                        5000.0,
+                        rltk::RGB::named(rltk::RED),
+                        rltk::to_cp437('█'),
+                        600.0,
                     );
                 }
             }

@@ -49,10 +49,14 @@ impl State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
-        // draw map + gui
+        // cleanup
+        ctx.set_active_console(0);
+        ctx.cls();
+        ctx.set_active_console(1);
         ctx.cls();
         sys_particle::cleanup_particles(&mut self.ecs, ctx);
 
+        // draw map + gui
         draw_map(&self.ecs, ctx);
         draw_renderables(&self.ecs, ctx);
         gui::draw_ui(&self.ecs, ctx);
@@ -137,20 +141,25 @@ fn draw_renderables(ecs: &World, ctx: &mut Rltk) {
     let lifetimes = ecs.read_storage::<ParticleLifetime>();
 
     for (pos, render, lifetime) in (&positions, &renderables, (&lifetimes).maybe()).join() {
-        let mut fg = render.fg;
-        let mut bg = render.bg;
+        match lifetime {
+            None => ctx.set(pos.x, pos.y, render.fg, render.bg, render.symbol),
+            Some(lifetime) => {
+                let mut fg = render.fg;
+                let mut bg = render.bg;
 
-        if let Some(lifetime) = lifetime {
-            if lifetime.should_fade {
-                let fade_percent = 1.0 - lifetime.remaining / lifetime.base;
-                let base_color = RGB::named(rltk::BLACK);
+                if lifetime.should_fade {
+                    let fade_percent = ezing::expo_inout(1.0 - lifetime.remaining / lifetime.base);
+                    let base_color = RGB::named(rltk::BLACK);
 
-                fg = fg.lerp(base_color, fade_percent);
-                bg = bg.lerp(base_color, fade_percent);
+                    fg = fg.lerp(base_color, fade_percent);
+                    bg = bg.lerp(base_color, fade_percent);
+                }
+
+                ctx.set_active_console(0);
+                ctx.set(pos.x, pos.y, fg, bg, render.symbol);
+                ctx.set_active_console(1);
             }
         }
-
-        ctx.set(pos.x, pos.y, fg, bg, render.symbol);
     }
 }
 
@@ -159,10 +168,12 @@ fn main() -> rltk::BError {
 
     const WIDTH: i32 = 80;
     const HEIGHT: i32 = 50;
+    const CONSOLE_HEIGHT: i32 = HEIGHT + 7;
 
-    let context = RltkBuilder::simple(WIDTH, HEIGHT + 7)
-        .expect("Failed to create console")
+    let context = RltkBuilder::simple(WIDTH, CONSOLE_HEIGHT)?
         .with_title("Roguelike Tutorial")
+        .with_font("terminal8x8.png", 8, 8)
+        .with_simple_console_no_bg(WIDTH, CONSOLE_HEIGHT, "terminal8x8.png")
         .build()
         .expect("Failed to build console");
 
