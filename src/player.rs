@@ -18,7 +18,11 @@ fn try_move_player(ecs: &mut World, dx: i32, dy: i32) -> RunState {
             viewshed.dirty = true;
 
             // testing events
-            super::events::add_event(vec![pos.as_point()]);
+            super::events::add_event(
+                super::EventType::Damage { amount: 1 },
+                vec![pos.as_point()],
+                true,
+            );
 
             return RunState::Running;
         }
@@ -42,24 +46,34 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     let result = handle_keys(gs, ctx, is_reaction);
 
     if result == RunState::Running {
-        // if we are in a reaction, remove the CanReact flag
-        // otherwise, we are on the main turn, so restore the flag
-        let player = gs.ecs.fetch::<Entity>();
-        let mut can_act = gs.ecs.write_storage::<super::CanActFlag>();
-        let mut can_react = gs.ecs.write_storage::<super::CanReactFlag>();
-
-        if is_reaction {
-            can_react.remove(*player);
-        } else {
-            can_react
-                .insert(*player, super::CanReactFlag {})
-                .expect("Failed to insert CanReactFlag");
-        }
-
-        can_act.clear();
+        update_reaction_state(&mut gs.ecs, is_reaction);
+        clear_lingering_cards(&mut gs.ecs);
     }
 
     result
+}
+
+// if we are in a reaction, remove the CanReact flag
+// otherwise, we are on the main turn, so restore the flag
+fn update_reaction_state(ecs: &mut World, is_reaction: bool) {
+    let player = ecs.fetch::<Entity>();
+    let mut can_act = ecs.write_storage::<super::CanActFlag>();
+    let mut can_react = ecs.write_storage::<super::CanReactFlag>();
+
+    if is_reaction {
+        can_react.remove(*player);
+    } else {
+        can_react
+            .insert(*player, super::CanReactFlag {})
+            .expect("Failed to insert CanReactFlag");
+    }
+
+    can_act.clear();
+}
+
+fn clear_lingering_cards(ecs: &mut World) {
+    let mut cards = ecs.write_storage::<super::CardLifetime>();
+    cards.clear();
 }
 
 fn handle_keys(gs: &mut State, ctx: &mut Rltk, _is_reaction: bool) -> RunState {

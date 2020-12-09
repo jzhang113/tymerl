@@ -12,6 +12,11 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
         RGB::named(rltk::BLACK),
     );
 
+    let log = ecs.fetch::<super::gamelog::GameLog>();
+    for (line, message) in log.entries.iter().rev().take(5).enumerate() {
+        ctx.print(2, 50 + line + 1, message);
+    }
+
     draw_tooltips(ecs, ctx);
 }
 

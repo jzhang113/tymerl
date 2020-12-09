@@ -22,7 +22,7 @@ pub struct Renderable {
 }
 
 #[derive(Component)]
-pub struct Player {}
+pub struct Player;
 
 #[derive(Component)]
 pub struct Viewshed {
@@ -36,7 +36,7 @@ pub struct CanActFlag {
 }
 
 #[derive(Component)]
-pub struct CanReactFlag {}
+pub struct CanReactFlag;
 
 #[derive(Component)]
 pub struct Schedulable {
@@ -50,4 +50,10 @@ pub struct ParticleLifetime {
     pub base: f32,
     pub remaining: f32,
     pub should_fade: bool,
+}
+
+#[derive(Component)]
+pub struct CardLifetime {
+    pub remaining: f32,
+    pub data: super::CardRequest,
 }

@@ -5,7 +5,7 @@ use rltk::{GameState, Rltk, RGB};
 use specs::prelude::*;
 
 mod components;
-pub mod events;
+mod events;
 mod gamelog;
 mod gui;
 mod map;
@@ -15,8 +15,9 @@ mod sys_turn;
 mod sys_visibility;
 
 pub use components::*;
+pub use events::EventType;
 pub use map::{Map, TileType};
-pub use sys_particle::ParticleBuilder;
+pub use sys_particle::{CardRequest, ParticleBuilder, ParticleRequest};
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum RunState {
@@ -64,11 +65,6 @@ impl GameState for State {
         let mut next_status;
         // wrapping to limit borrowed lifetimes
         {
-            let log = self.ecs.fetch::<gamelog::GameLog>();
-            for (line, message) in log.entries.iter().rev().take(5).enumerate() {
-                ctx.print(2, 50 + line + 1, message);
-            }
-
             let player = self.ecs.fetch::<Entity>();
             let can_act = self.ecs.read_storage::<CanActFlag>();
             match can_act.get(*player) {
@@ -88,7 +84,7 @@ impl GameState for State {
                 // uncomment while loop to skip rendering intermediate states
                 // while next_status == RunState::Running {
                 self.run_systems();
-                //std::thread::sleep(std::time::Duration::from_millis(100));
+                // std::thread::sleep(std::time::Duration::from_millis(100));
                 next_status = *self.ecs.fetch::<RunState>();
                 //}
             }
@@ -138,29 +134,52 @@ fn draw_map(ecs: &World, ctx: &mut Rltk) {
 fn draw_renderables(ecs: &World, ctx: &mut Rltk) {
     let positions = ecs.read_storage::<Position>();
     let renderables = ecs.read_storage::<Renderable>();
-    let lifetimes = ecs.read_storage::<ParticleLifetime>();
+    let particles = ecs.read_storage::<ParticleLifetime>();
+    let cards = ecs.read_storage::<CardLifetime>();
 
-    for (pos, render, lifetime) in (&positions, &renderables, (&lifetimes).maybe()).join() {
-        match lifetime {
-            None => ctx.set(pos.x, pos.y, render.fg, render.bg, render.symbol),
-            Some(lifetime) => {
-                let mut fg = render.fg;
-                let mut bg = render.bg;
+    for (pos, render, particle) in (&positions, &renderables, (&particles).maybe()).join() {
+        if let Some(lifetime) = particle {
+            let mut fg = render.fg;
+            let mut bg = render.bg;
 
-                if lifetime.should_fade {
-                    let fade_percent = ezing::expo_inout(1.0 - lifetime.remaining / lifetime.base);
-                    let base_color = RGB::named(rltk::BLACK);
+            if lifetime.should_fade {
+                let fade_percent = ezing::expo_inout(1.0 - lifetime.remaining / lifetime.base);
+                let base_color = RGB::named(rltk::BLACK);
 
-                    fg = fg.lerp(base_color, fade_percent);
-                    bg = bg.lerp(base_color, fade_percent);
-                }
-
-                ctx.set_active_console(0);
-                ctx.set(pos.x, pos.y, fg, bg, render.symbol);
-                ctx.set_active_console(1);
+                fg = fg.lerp(base_color, fade_percent);
+                bg = bg.lerp(base_color, fade_percent);
             }
+
+            ctx.set_active_console(0);
+            ctx.set(pos.x, pos.y, fg, bg, render.symbol);
+            ctx.set_active_console(1);
+        } else {
+            ctx.set(pos.x, pos.y, render.fg, render.bg, render.symbol);
         }
     }
+
+    let card_stack_active = events::CARDSTACK.lock().expect("Failed to lock CARDSTACK");
+    for (i, card) in card_stack_active.iter().enumerate() {
+        draw_card(card, i as i32, ctx);
+    }
+
+    let mut card_stack_linger = cards.join().collect::<Vec<_>>();
+    card_stack_linger.sort_by(|&a, b| a.data.offset.partial_cmp(&b.data.offset).unwrap());
+    for card in card_stack_linger {
+        draw_card(&card.data, card.data.offset, ctx);
+    }
+}
+
+fn draw_card(card: &CardRequest, offset: i32, ctx: &mut Rltk) {
+    ctx.draw_box(
+        50 + 3 * offset,
+        10,
+        10,
+        15,
+        RGB::named(rltk::WHITE),
+        RGB::named(rltk::BLACK),
+    );
+    ctx.print(51 + 3 * offset, 11, card.name.clone());
 }
 
 fn main() -> rltk::BError {
@@ -189,6 +208,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<CanReactFlag>();
     gs.ecs.register::<Schedulable>();
     gs.ecs.register::<ParticleLifetime>();
+    gs.ecs.register::<CardLifetime>();
 
     gs.ecs.insert(RunState::Running);
     gs.ecs.insert(sys_particle::ParticleBuilder::new());
