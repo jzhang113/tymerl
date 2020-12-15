@@ -14,11 +14,41 @@ pub struct Map {
     pub height: i32,
     pub known_tiles: Vec<bool>,
     pub visible_tiles: Vec<bool>,
+    pub blocked_tiles: Vec<bool>,
 }
 
 impl BaseMap for Map {
     fn is_opaque(&self, idx: usize) -> bool {
         self.tiles[idx] == TileType::Wall
+    }
+
+    fn get_available_exits(&self, idx: usize) -> rltk::SmallVec<[(usize, f32); 10]> {
+        let mut exits = rltk::SmallVec::new();
+        let x = idx as i32 % self.width;
+        let y = idx as i32 / self.width;
+        let w = self.width as usize;
+
+        // Cardinal directions
+        if self.is_exit_valid(x - 1, y) {
+            exits.push((idx - 1, 1.0))
+        };
+        if self.is_exit_valid(x + 1, y) {
+            exits.push((idx + 1, 1.0))
+        };
+        if self.is_exit_valid(x, y - 1) {
+            exits.push((idx - w, 1.0))
+        };
+        if self.is_exit_valid(x, y + 1) {
+            exits.push((idx + w, 1.0))
+        };
+
+        exits
+    }
+
+    fn get_pathing_distance(&self, idx1: usize, idx2: usize) -> f32 {
+        let p1 = self.index_to_point2d(idx1);
+        let p2 = self.index_to_point2d(idx2);
+        rltk::DistanceAlg::Manhattan.distance2d(p1, p2)
     }
 }
 
@@ -31,6 +61,21 @@ impl Algorithm2D for Map {
 impl Map {
     pub fn get_index(&self, x: i32, y: i32) -> usize {
         ((y * self.width) + x) as usize
+    }
+
+    pub fn set_blocked_tiles(&mut self) {
+        for (index, tile) in self.tiles.iter_mut().enumerate() {
+            let is_blocked = *tile == TileType::Wall;
+            self.blocked_tiles[index] = is_blocked;
+        }
+    }
+
+    fn is_exit_valid(&self, x: i32, y: i32) -> bool {
+        if x < 1 || x > self.width - 1 || y < 1 || y > self.height - 1 {
+            return false;
+        }
+
+        !self.blocked_tiles[self.get_index(x, y)]
     }
 
     fn build_room(&mut self, room: Rect) {
@@ -89,6 +134,7 @@ pub fn build_rogue_map(width: i32, height: i32) -> Map {
         height: height,
         known_tiles: vec![false; dim],
         visible_tiles: vec![false; dim],
+        blocked_tiles: vec![false; dim],
     };
 
     let mut rng = rltk::RandomNumberGenerator::new();
@@ -130,5 +176,6 @@ pub fn build_rogue_map(width: i32, height: i32) -> Map {
         }
     }
 
+    map.set_blocked_tiles();
     map
 }

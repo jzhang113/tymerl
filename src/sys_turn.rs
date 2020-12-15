@@ -1,7 +1,7 @@
 use super::{CanActFlag, Position, RunState, Schedulable};
 use specs::prelude::*;
 
-pub struct TurnSystem {}
+pub struct TurnSystem;
 
 impl<'a> System<'a> for TurnSystem {
     type SystemData = (

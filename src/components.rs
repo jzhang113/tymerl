@@ -57,3 +57,6 @@ pub struct CardLifetime {
     pub remaining: f32,
     pub data: super::CardRequest,
 }
+
+#[derive(Component)]
+pub struct BlocksTile;

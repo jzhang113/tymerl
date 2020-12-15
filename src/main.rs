@@ -10,6 +10,7 @@ mod gamelog;
 mod gui;
 mod map;
 mod player;
+mod sys_mapindex;
 mod sys_particle;
 mod sys_turn;
 mod sys_visibility;
@@ -33,16 +34,13 @@ pub struct State {
 impl State {
     fn run_systems(&mut self) {
         self.tick += 1;
-        let mut vis = sys_visibility::VisibilitySystem {};
-        vis.run_now(&self.ecs);
+        sys_visibility::VisibilitySystem.run_now(&self.ecs);
+        sys_mapindex::MapIndexSystem.run_now(&self.ecs);
 
         events::process_stack(&mut self.ecs);
 
-        let mut turns = sys_turn::TurnSystem {};
-        turns.run_now(&self.ecs);
-
-        let mut particles = sys_particle::ParticleSpawnSystem {};
-        particles.run_now(&self.ecs);
+        sys_turn::TurnSystem.run_now(&self.ecs);
+        sys_particle::ParticleSpawnSystem.run_now(&self.ecs);
 
         self.ecs.maintain();
     }
@@ -209,6 +207,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Schedulable>();
     gs.ecs.register::<ParticleLifetime>();
     gs.ecs.register::<CardLifetime>();
+    gs.ecs.register::<BlocksTile>();
 
     gs.ecs.insert(RunState::Running);
     gs.ecs.insert(sys_particle::ParticleBuilder::new());
@@ -234,7 +233,7 @@ fn main() -> rltk::BError {
             fg: RGB::named(rltk::YELLOW),
             bg: RGB::named(rltk::BLACK),
         })
-        .with(Player {})
+        .with(Player)
         .with(Schedulable {
             current: 0,
             base: 24,
@@ -244,9 +243,25 @@ fn main() -> rltk::BError {
             visible: Vec::new(),
             dirty: true,
         })
-        .with(CanReactFlag {})
+        .with(CanReactFlag)
+        .with(BlocksTile)
         .build();
     gs.ecs.insert(player);
+
+    let _explosive_barrel = gs
+        .ecs
+        .create_entity()
+        .with(Position {
+            x: player_pos.x - 1,
+            y: player_pos.y - 1,
+        })
+        .with(Renderable {
+            symbol: rltk::to_cp437('#'),
+            fg: RGB::named(rltk::YELLOW),
+            bg: RGB::named(rltk::BLACK),
+        })
+        .with(BlocksTile)
+        .build();
 
     rltk::main_loop(context, gs)
 }
