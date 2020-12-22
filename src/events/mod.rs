@@ -8,10 +8,11 @@ lazy_static! {
     pub static ref CARDSTACK: Mutex<Vec<CardRequest>> = Mutex::new(Vec::new());
 }
 
+#[derive(Copy, Clone)]
 pub enum EventType {
     Damage { amount: i32 },
     ParticleSpawn { request: ParticleRequest },
-    ShowCard { request: CardRequest, offset: i32 },
+    // ShowCard { request: CardRequest, offset: i32 },
 }
 
 pub struct Event {
@@ -131,18 +132,8 @@ fn process_event(ecs: &mut World, event: Event) {
     };
 
     if let Some(top) = top {
-        handle_event_types(
-            ecs,
-            Event {
-                event_type: EventType::ShowCard {
-                    request: top,
-                    offset: still_alive,
-                },
-                source: None,
-                target_tiles: Vec::new(),
-                invokes_reaction: false,
-            },
-        );
+        let mut builder = ecs.fetch_mut::<super::ParticleBuilder>();
+        builder.make_card(top, still_alive);
     }
 
     handle_event_types(ecs, event);
@@ -167,17 +158,19 @@ fn handle_event_types(ecs: &mut World, event: Event) {
                 );
             }
 
-            for ent in get_affected_entities(ecs, &event.target_tiles) {
-                println!("{:?} took {:?} damage from {:?}", ent, amount, event.source)
+            let affected = get_affected_entities(ecs, &event.target_tiles);
+            let mut healths = ecs.write_storage::<super::Health>();
+
+            for e_aff in affected.iter() {
+                let affected = healths.get_mut(*e_aff);
+                if let Some(mut affected) = affected {
+                    affected.current -= amount;
+                }
             }
         }
         EventType::ParticleSpawn { request } => {
             let mut builder = ecs.fetch_mut::<super::ParticleBuilder>();
             builder.make_particle(request);
-        }
-        EventType::ShowCard { request, offset } => {
-            let mut builder = ecs.fetch_mut::<super::ParticleBuilder>();
-            builder.make_card(request, offset);
         }
     }
 }

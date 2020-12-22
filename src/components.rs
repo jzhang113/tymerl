@@ -60,3 +60,14 @@ pub struct CardLifetime {
 
 #[derive(Component)]
 pub struct BlocksTile;
+
+#[derive(Component)]
+pub struct Health {
+    pub current: i32,
+    pub max: i32,
+}
+
+#[derive(Component)]
+pub struct DeathTrigger {
+    pub prototype: crate::EventType,
+}
