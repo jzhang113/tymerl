@@ -1,4 +1,4 @@
-use super::{Map, Player, Position, RunState, State, Viewshed};
+use super::{AttackIntent, Map, Player, Position, RunState, State, Viewshed};
 use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
 
@@ -7,22 +7,30 @@ fn try_move_player(ecs: &mut World, dx: i32, dy: i32) -> RunState {
     let mut positions = ecs.write_storage::<Position>();
     let players = ecs.read_storage::<Player>();
     let mut viewsheds = ecs.write_storage::<Viewshed>();
+    let mut attacks = ecs.write_storage::<AttackIntent>();
     let map = ecs.fetch::<Map>();
+    let player = ecs.fetch::<Entity>();
 
     for (_player, pos, viewshed) in (&players, &mut positions, &mut viewsheds).join() {
         let dest_index = map.get_index(pos.x + dx, pos.y + dy);
 
+        let new_x = min(map.width, max(0, pos.x + dx));
+        let new_y = min(map.height, max(0, pos.y + dy));
+
         if !map.blocked_tiles[dest_index] {
-            pos.x = min(map.width, max(0, pos.x + dx));
-            pos.y = min(map.height, max(0, pos.y + dy));
+            pos.x = new_x;
+            pos.y = new_y;
             viewshed.dirty = true;
 
-            // testing events
-            super::events::add_event(
-                super::EventType::Damage { amount: 1 },
-                vec![pos.as_point()],
-                true,
-            );
+            return RunState::Running;
+        } else if map.tiles[dest_index] != crate::TileType::Wall {
+            let new_attack = AttackIntent {
+                loc: rltk::Point::new(new_x, new_y),
+                range: crate::RangeType::Single,
+            };
+            attacks
+                .insert(*player, new_attack)
+                .expect("Failed to insert new attack from player");
 
             return RunState::Running;
         }

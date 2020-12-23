@@ -69,5 +69,12 @@ pub struct Health {
 
 #[derive(Component)]
 pub struct DeathTrigger {
-    pub prototype: crate::EventType,
+    pub event: crate::EventType,
+    pub range: crate::RangeType,
+}
+
+#[derive(Component)]
+pub struct AttackIntent {
+    pub loc: rltk::Point,
+    pub range: crate::RangeType,
 }

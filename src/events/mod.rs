@@ -1,33 +1,34 @@
-use super::{CardRequest, ParticleRequest};
+use super::CardRequest;
 use rltk::Point;
 use specs::prelude::*;
 use std::sync::Mutex;
 
+mod event_type;
+mod range_type;
+
+pub use event_type::EventType;
+pub use range_type::RangeType;
+
 lazy_static! {
-    pub static ref STACK: Mutex<Vec<Event>> = Mutex::new(Vec::new());
+    static ref STACK: Mutex<Vec<Event>> = Mutex::new(Vec::new());
     pub static ref CARDSTACK: Mutex<Vec<CardRequest>> = Mutex::new(Vec::new());
 }
 
-#[derive(Copy, Clone)]
-pub enum EventType {
-    Damage { amount: i32 },
-    ParticleSpawn { request: ParticleRequest },
-    // ShowCard { request: CardRequest, offset: i32 },
+struct Event {
+    resolver: Box<dyn event_type::EventResolver + Send>,
+    name: Option<String>,
+    source: Option<Entity>,
+    target_tiles: Vec<Point>,
+    invokes_reaction: bool,
 }
 
-pub struct Event {
-    pub event_type: EventType,
-    pub source: Option<Entity>,
-    pub target_tiles: Vec<Point>,
-    pub invokes_reaction: bool,
-}
-
-pub fn add_event(event_type: EventType, targets: Vec<Point>, invokes_reaction: bool) {
+pub fn add_event(event_type: &EventType, range: &RangeType, loc: Point, invokes_reaction: bool) {
     let mut stack = STACK.lock().expect("Failed to lock STACK");
     let event = Event {
-        event_type,
+        resolver: event_type::get_resolver(event_type),
+        name: event_type::get_name(event_type),
         source: None,
-        target_tiles: targets,
+        target_tiles: range_type::resolve_range_at(range, loc),
         invokes_reaction,
     };
 
@@ -48,7 +49,9 @@ pub fn process_stack(ecs: &mut World) {
                 } else {
                     let mut entities_hit = get_affected_entities(ecs, &event.target_tiles);
 
-                    add_card_to_stack(ecs, &entities_hit, &event);
+                    if let Some(card_name) = &event.name {
+                        add_card_to_stack(ecs, &entities_hit, card_name);
+                    }
 
                     entities_hit.retain(|ent| entity_can_react(ecs, ent));
 
@@ -77,7 +80,7 @@ pub fn process_stack(ecs: &mut World) {
 
 fn get_affected_entities(ecs: &mut World, targets: &Vec<Point>) -> Vec<Entity> {
     let mut affected = Vec::new();
-    let positions = ecs.read_storage::<super::Position>();
+    let positions = ecs.read_storage::<crate::Position>();
     let entities = ecs.entities();
 
     for (ent, pos) in (&entities, &positions).join() {
@@ -96,10 +99,13 @@ fn entity_can_react(ecs: &mut World, target: &Entity) -> bool {
     can_react.get(*target).is_some()
 }
 
-fn add_card_to_stack(ecs: &mut World, entities_hit: &Vec<Entity>, event: &Event) {
+fn add_card_to_stack(ecs: &mut World, entities_hit: &Vec<Entity>, name: &String) {
     let player = ecs.fetch::<Entity>();
     if entities_hit.contains(&*player) {
-        let visual_event_data = get_assoc_card_event(event);
+        let visual_event_data = Some(CardRequest {
+            name: name.to_string(),
+            offset: 0,
+        });
 
         if let Some(visual_event_data) = visual_event_data {
             CARDSTACK
@@ -110,21 +116,11 @@ fn add_card_to_stack(ecs: &mut World, entities_hit: &Vec<Entity>, event: &Event)
     }
 }
 
-fn get_assoc_card_event(event: &Event) -> Option<CardRequest> {
-    match event.event_type {
-        EventType::Damage { .. } => Some(CardRequest {
-            name: "Damage".to_string(),
-            offset: 0,
-        }),
-        _ => None,
-    }
-}
-
 fn process_event(ecs: &mut World, event: Event) {
     let top = CARDSTACK.lock().expect("Failed to lock CARDSTACK").pop();
     let still_alive = {
         let mut count = 0;
-        let cards = ecs.read_storage::<super::CardLifetime>();
+        let cards = ecs.read_storage::<crate::CardLifetime>();
         for _ in cards.join() {
             count += 1;
         }
@@ -132,45 +128,11 @@ fn process_event(ecs: &mut World, event: Event) {
     };
 
     if let Some(top) = top {
-        let mut builder = ecs.fetch_mut::<super::ParticleBuilder>();
+        let mut builder = ecs.fetch_mut::<crate::ParticleBuilder>();
         builder.make_card(top, still_alive);
     }
 
-    handle_event_types(ecs, event);
-}
-
-// placeholder handling
-fn handle_event_types(ecs: &mut World, event: Event) {
-    match event.event_type {
-        EventType::Damage { amount } => {
-            for pos in &event.target_tiles {
-                add_event(
-                    EventType::ParticleSpawn {
-                        request: ParticleRequest {
-                            position: *pos,
-                            color: rltk::RGB::named(rltk::RED),
-                            symbol: rltk::to_cp437('█'),
-                            lifetime: 600.0,
-                        },
-                    },
-                    Vec::new(),
-                    false,
-                );
-            }
-
-            let affected = get_affected_entities(ecs, &event.target_tiles);
-            let mut healths = ecs.write_storage::<super::Health>();
-
-            for e_aff in affected.iter() {
-                let affected = healths.get_mut(*e_aff);
-                if let Some(mut affected) = affected {
-                    affected.current -= amount;
-                }
-            }
-        }
-        EventType::ParticleSpawn { request } => {
-            let mut builder = ecs.fetch_mut::<super::ParticleBuilder>();
-            builder.make_particle(request);
-        }
-    }
+    event
+        .resolver
+        .resolve(ecs, event.source, event.target_tiles);
 }

@@ -10,6 +10,7 @@ mod gamelog;
 mod gui;
 mod map;
 mod player;
+mod sys_attack;
 mod sys_death;
 mod sys_mapindex;
 mod sys_particle;
@@ -41,6 +42,7 @@ impl State {
         events::process_stack(&mut self.ecs);
 
         sys_turn::TurnSystem.run_now(&self.ecs);
+        sys_attack::AttackSystem.run_now(&self.ecs);
         sys_particle::ParticleSpawnSystem.run_now(&self.ecs);
 
         sys_death::DeathSystem.run_now(&self.ecs);
@@ -128,6 +130,7 @@ fn main() -> rltk::BError {
 
     gs.ecs.register::<Health>();
     gs.ecs.register::<DeathTrigger>();
+    gs.ecs.register::<AttackIntent>();
 
     gs.ecs.insert(RunState::Running);
     gs.ecs.insert(sys_particle::ParticleBuilder::new());
@@ -187,7 +190,8 @@ fn main() -> rltk::BError {
         .with(BlocksTile)
         .with(Health { current: 2, max: 2 })
         .with(DeathTrigger {
-            prototype: EventType::Damage { amount: 1 },
+            event: EventType::Damage { amount: 1 },
+            range: RangeType::Square { size: 1 },
         })
         .build();
 
