@@ -86,11 +86,11 @@ impl GameState for State {
             }
             RunState::Running => {
                 // uncomment while loop to skip rendering intermediate states
-                // while next_status == RunState::Running {
-                self.run_systems();
-                // std::thread::sleep(std::time::Duration::from_millis(100));
-                next_status = *self.ecs.fetch::<RunState>();
-                //}
+                while next_status == RunState::Running {
+                    self.run_systems();
+                    // std::thread::sleep(std::time::Duration::from_millis(100));
+                    next_status = *self.ecs.fetch::<RunState>();
+                }
             }
         }
 

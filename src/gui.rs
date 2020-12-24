@@ -75,6 +75,18 @@ pub fn draw_cards(ecs: &World, ctx: &mut Rltk) {
 
     for (i, card) in card_stack_active.iter().enumerate() {
         draw_card(card, i as i32, ctx);
+
+        ctx.set_active_console(0);
+        for pos in card.affected.iter() {
+            ctx.set(
+                pos.x,
+                pos.y,
+                RGB::named(rltk::RED),
+                RGB::named(rltk::BLACK),
+                rltk::to_cp437('█'),
+            );
+        }
+        ctx.set_active_console(1);
     }
 
     let mut card_stack_linger = cards.join().collect::<Vec<_>>();
@@ -119,6 +131,7 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
         ctx.print(2, 50 + line + 1, message);
     }
 
+    ctx.print(74, 1, format!("{} fps", ctx.fps));
     draw_tooltips(ecs, ctx);
 }
 

@@ -44,6 +44,7 @@ pub struct ParticleRequest {
 pub struct CardRequest {
     pub name: String,
     pub offset: i32,
+    pub affected: std::sync::Arc<Vec<rltk::Point>>,
 }
 
 pub struct ParticleBuilder {
