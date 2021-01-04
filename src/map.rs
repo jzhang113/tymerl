@@ -46,8 +46,9 @@ impl BaseMap for Map {
     }
 
     fn get_pathing_distance(&self, idx1: usize, idx2: usize) -> f32 {
-        let p1 = self.index_to_point2d(idx1);
-        let p2 = self.index_to_point2d(idx2);
+        let w = self.width as usize;
+        let p1 = Point::new(idx1 % w, idx1 / w);
+        let p2 = Point::new(idx2 % w, idx2 / w);
         rltk::DistanceAlg::Manhattan.distance2d(p1, p2)
     }
 }

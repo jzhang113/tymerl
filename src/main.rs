@@ -10,9 +10,11 @@ mod gamelog;
 mod gui;
 mod map;
 mod player;
+mod sys_ai;
 mod sys_attack;
 mod sys_death;
 mod sys_mapindex;
+mod sys_movement;
 mod sys_particle;
 mod sys_turn;
 mod sys_visibility;
@@ -40,8 +42,10 @@ impl State {
         sys_mapindex::MapIndexSystem.run_now(&self.ecs);
 
         events::process_stack(&mut self.ecs);
-
         sys_turn::TurnSystem.run_now(&self.ecs);
+        sys_ai::AiSystem.run_now(&self.ecs);
+
+        sys_movement::MovementSystem.run_now(&self.ecs);
         sys_attack::AttackSystem.run_now(&self.ecs);
         sys_particle::ParticleSpawnSystem.run_now(&self.ecs);
 
@@ -131,12 +135,42 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Health>();
     gs.ecs.register::<DeathTrigger>();
     gs.ecs.register::<AttackIntent>();
+    gs.ecs.register::<MoveIntent>();
+    gs.ecs.register::<Moveset>();
 
     gs.ecs.insert(RunState::Running);
     gs.ecs.insert(sys_particle::ParticleBuilder::new());
 
     let map = map::build_rogue_map(WIDTH, HEIGHT);
     let player_pos = map.rooms[0].center();
+
+    for room in map.rooms.iter().skip(1).take(1) {
+        let (x, y) = room.center().to_tuple();
+        let _enemy = gs
+            .ecs
+            .create_entity()
+            .with(Position { x, y })
+            .with(Renderable {
+                symbol: rltk::to_cp437('x'),
+                fg: RGB::named(rltk::LIGHT_BLUE),
+                bg: RGB::named(rltk::BLACK),
+            })
+            .with(Schedulable {
+                current: 0,
+                base: 24,
+                delta: 4,
+            })
+            .with(Viewshed {
+                visible: Vec::new(),
+                dirty: true,
+                range: 6,
+            })
+            .with(BlocksTile)
+            .with(Health { current: 5, max: 5 })
+            .with(Moveset {})
+            .build();
+    }
+
     gs.ecs.insert(map);
 
     let log = gamelog::GameLog {
@@ -165,12 +199,13 @@ fn main() -> rltk::BError {
         .with(Viewshed {
             visible: Vec::new(),
             dirty: true,
+            range: 8,
         })
         .with(CanReactFlag)
         .with(BlocksTile)
         .with(Health {
-            current: 30,
-            max: 30,
+            current: 10,
+            max: 10,
         })
         .build();
     gs.ecs.insert(player);

@@ -28,6 +28,7 @@ pub struct Player;
 pub struct Viewshed {
     pub visible: Vec<Point>,
     pub dirty: bool,
+    pub range: i32,
 }
 
 #[derive(Component)]
@@ -78,3 +79,11 @@ pub struct AttackIntent {
     pub loc: rltk::Point,
     pub range: crate::RangeType,
 }
+
+#[derive(Component)]
+pub struct MoveIntent {
+    pub loc: rltk::Point,
+}
+
+#[derive(Component)]
+pub struct Moveset {}

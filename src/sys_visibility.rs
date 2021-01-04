@@ -22,7 +22,7 @@ impl<'a> System<'a> for VisibilitySystem {
             }
 
             viewshed.visible.clear();
-            viewshed.visible = rltk::field_of_view(Point::new(pos.x, pos.y), 10, &*map);
+            viewshed.visible = rltk::field_of_view(Point::new(pos.x, pos.y), viewshed.range, &*map);
             viewshed
                 .visible
                 .retain(|p| p.x >= 0 && p.x < map.width && p.y >= 0 && p.y < map.height);

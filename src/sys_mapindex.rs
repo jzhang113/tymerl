@@ -16,7 +16,7 @@ impl<'a> System<'a> for MapIndexSystem {
         map.set_blocked_tiles();
         for (pos, _blocked) in (&positions, &blockers).join() {
             let index = map.get_index(pos.x, pos.y);
-            map.blocked_tiles[index] = true;
+            //map.blocked_tiles[index] = true;
         }
     }
 }

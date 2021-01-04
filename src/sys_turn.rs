@@ -21,7 +21,6 @@ impl<'a> System<'a> for TurnSystem {
             *game_state = RunState::AwaitingInput;
             return;
         }
-        can_act.clear();
 
         for (ent, sched, _pos) in (&entities, &mut schedulables, &pos).join() {
             sched.current -= sched.delta;
