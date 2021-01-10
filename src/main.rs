@@ -38,18 +38,24 @@ pub struct State {
 impl State {
     fn run_systems(&mut self) {
         self.tick += 1;
-        sys_visibility::VisibilitySystem.run_now(&self.ecs);
-        sys_mapindex::MapIndexSystem.run_now(&self.ecs);
 
-        events::process_stack(&mut self.ecs);
-        sys_turn::TurnSystem.run_now(&self.ecs);
         sys_ai::AiSystem.run_now(&self.ecs);
+        sys_turn::TurnSystem.run_now(&self.ecs);
 
         sys_movement::MovementSystem.run_now(&self.ecs);
         sys_attack::AttackSystem.run_now(&self.ecs);
-        sys_particle::ParticleSpawnSystem.run_now(&self.ecs);
 
+        // events are processed after everything relevant is added (only attacks currently)
+        events::process_stack(&mut self.ecs);
+
+        // index needs to run after movement so blocked tiles are updated
+        sys_mapindex::MapIndexSystem.run_now(&self.ecs);
+
+        // death needs to run after attacks so bodies are cleaned up
         sys_death::DeathSystem.run_now(&self.ecs);
+
+        sys_visibility::VisibilitySystem.run_now(&self.ecs);
+        sys_particle::ParticleSpawnSystem.run_now(&self.ecs);
 
         self.ecs.maintain();
     }
@@ -144,7 +150,7 @@ fn main() -> rltk::BError {
     let map = map::build_rogue_map(WIDTH, HEIGHT);
     let player_pos = map.rooms[0].center();
 
-    for room in map.rooms.iter().skip(1).take(1) {
+    for room in map.rooms.iter().skip(1) {
         let (x, y) = room.center().to_tuple();
         let _enemy = gs
             .ecs
@@ -202,7 +208,7 @@ fn main() -> rltk::BError {
             range: 8,
         })
         .with(CanReactFlag)
-        .with(BlocksTile)
+        //.with(BlocksTile)
         .with(Health {
             current: 10,
             max: 10,

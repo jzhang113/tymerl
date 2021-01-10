@@ -28,8 +28,6 @@ impl<'a> System<'a> for AiSystem {
                 continue;
             }
 
-            println!("ai turn: {:?}", ent);
-
             if viewshed
                 .visible
                 .iter()
@@ -40,8 +38,17 @@ impl<'a> System<'a> for AiSystem {
                 let player_index = map.get_index(player_pos.x, player_pos.y);
                 let path = rltk::a_star_search(curr_index, player_index, &*map);
                 let next_pos = map.index_to_point2d(path.steps[1]);
-                let movement = MoveIntent { loc: next_pos };
-                moves.insert(ent, movement).expect("something");
+
+                if next_pos.x == player_pos.x && next_pos.y == player_pos.y {
+                    let attack = AttackIntent {
+                        loc: next_pos,
+                        range: crate::RangeType::Single,
+                    };
+                    attacks.insert(ent, attack).expect("sth");
+                } else {
+                    let movement = MoveIntent { loc: next_pos };
+                    moves.insert(ent, movement).expect("something");
+                }
             } else {
                 // else wait for now
             }

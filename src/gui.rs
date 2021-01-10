@@ -44,6 +44,7 @@ pub fn draw_renderables(ecs: &World, ctx: &mut Rltk) {
     let positions = ecs.read_storage::<Position>();
     let renderables = ecs.read_storage::<Renderable>();
     let particles = ecs.read_storage::<ParticleLifetime>();
+    let map = ecs.fetch::<Map>();
 
     for (pos, render, particle) in (&positions, &renderables, (&particles).maybe()).join() {
         if let Some(lifetime) = particle {
@@ -61,7 +62,7 @@ pub fn draw_renderables(ecs: &World, ctx: &mut Rltk) {
             ctx.set_active_console(0);
             ctx.set(pos.x, pos.y, fg, bg, render.symbol);
             ctx.set_active_console(1);
-        } else {
+        } else if map.visible_tiles[map.get_index(pos.x, pos.y)] {
             ctx.set(pos.x, pos.y, render.fg, render.bg, render.symbol);
         }
     }

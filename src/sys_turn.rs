@@ -32,10 +32,6 @@ impl<'a> System<'a> for TurnSystem {
             can_act
                 .insert(ent, CanActFlag { is_reaction: false })
                 .expect("Failed to insert CanActFlag");
-
-            if ent == *player {
-                *game_state = RunState::AwaitingInput
-            }
         }
     }
 }
